@@ -7,7 +7,7 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
-# Copy all microservice modules
+# Copy necessary microservice modules
 COPY configserver configserver
 COPY eureka eureka
 COPY userservice userservice
@@ -23,7 +23,6 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # Copy built JARs from build stage
-COPY --from=build /app/eureka/target/*.jar eureka.jar
 COPY --from=build /app/activityservice/target/*.jar activityservice.jar
 COPY --from=build /app/aiservice/target/*.jar aiservice.jar
 COPY --from=build /app/gateway/target/*.jar gateway.jar
