@@ -5,6 +5,7 @@ import { AuthContext } from 'react-oauth2-code-pkce';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { theme } from './theme';
 import { logout, setCredentials } from './store/authSlice';
 import Navbar from './components/Navbar';
@@ -54,6 +55,7 @@ function App() {
           </Box>
         )}
       </Router>
+      <SpeedInsights />
     </ThemeProvider>
   );
 }
