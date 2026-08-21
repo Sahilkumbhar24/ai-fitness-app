@@ -1,0 +1,37 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# IDE & Editor files
+.idea/
+.vscode/
+.metadata/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+
+# OS / Environment
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env*.local
+
+# Binaries
+cloudflared.exe

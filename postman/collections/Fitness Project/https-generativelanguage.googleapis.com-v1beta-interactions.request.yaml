@@ -1,0 +1,30 @@
+$kind: http-request
+name: https://generativelanguage.googleapis.com/v1beta/interactions
+description: "Generated from cURL: curl -X POST \"https://generativelanguage.googleapis.com/v1beta/interactions\" \\\r
+
+  \  -H \"x-goog-api-key: $GEMINI_API_KEY\" \\\r
+
+  \  -H 'Content-Type: application/json' \\\r
+
+  \  -d '{\r
+
+  \    \"model\": \"gemini-3.7-flash\",\r
+
+  \    \"input\": \"Explain how AI works in a few words\"\r
+
+  \  }'"
+url: https://generativelanguage.googleapis.com/v1beta/interactions
+method: POST
+headers:
+  x-goog-api-key: "{{GEMINI_API_KEY}}"
+  Content-Type: application/json
+body:
+  type: json
+  content: "{\r
+
+    \    \"model\": \"gemini-3.7-flash\",\r
+
+    \    \"input\": \"who is sahil kumbhar\"\r
+
+    \  }"
+order: 1787043315951
