@@ -2,24 +2,20 @@
 FROM eclipse-temurin:17-jdk-alpine AS build
 WORKDIR /app
 
-# Copy Maven wrapper and POMs
+# Copy Maven wrapper and root POM
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
-COPY configserver/pom.xml configserver/
-COPY eureka/pom.xml eureka/
-COPY userservice/pom.xml userservice/
-COPY activityservice/pom.xml activityservice/
-COPY aiservice/pom.xml aiservice/
-COPY gateway/pom.xml gateway/
 
-# Copy all source code
-COPY eureka/src eureka/src
-COPY activityservice/src activityservice/src
-COPY aiservice/src aiservice/src
-COPY gateway/src gateway/src
+# Copy all microservice modules
+COPY configserver configserver
+COPY eureka eureka
+COPY userservice userservice
+COPY activityservice activityservice
+COPY aiservice aiservice
+COPY gateway gateway
 
-# Make wrapper executable and package JARs
+# Make wrapper executable and package all JARs
 RUN chmod +x mvnw && ./mvnw clean package -DskipTests
 
 # Production Alpine JRE Runtime
