@@ -19,8 +19,8 @@ COPY activityservice/src activityservice/src
 COPY aiservice/src aiservice/src
 COPY gateway/src gateway/src
 
-# Package JARs (skip tests for fast build)
-RUN ./mvnw clean package -DskipTests
+# Make wrapper executable and package JARs
+RUN chmod +x mvnw && ./mvnw clean package -DskipTests
 
 # Production Alpine JRE Runtime
 FROM eclipse-temurin:17-jre-alpine
