@@ -33,11 +33,13 @@ This platform captures workout metrics in real-time, streams activity events thr
 
 > A complete walkthrough demonstrating the application in action — from user authentication and workout logging to AI-powered recommendations.
 
-<video src="Project Walktrough.mp4" controls width="100%">
-  Your browser does not support the video tag. <a href="Project Walktrough.mp4">Download the walkthrough video</a>.
-</video>
+<p align="center">
+  <a href="https://github.com/Sahilkumbhar24/ai-fitness-app/raw/main/Project%20Walktrough.mp4">
+    <img src="video-thumbnail.jpg" alt="▶ Watch Project Walkthrough" width="80%"/>
+  </a>
+</p>
 
-📥 [Download Project Walkthrough Video](Project%20Walktrough.mp4)
+<p align="center"><i>👆 Click the thumbnail above to download and watch the full walkthrough video</i></p>
 
 ---
 
