@@ -34,12 +34,9 @@ This platform captures workout metrics in real-time, streams activity events thr
 > A complete walkthrough demonstrating the application in action — from user authentication and workout logging to AI-powered recommendations.
 
 <p align="center">
-  <a href="https://github.com/Sahilkumbhar24/ai-fitness-app/raw/main/Project%20Walktrough.mp4">
-    <img src="video-thumbnail.jpg" alt="▶ Watch Project Walkthrough" width="80%"/>
-  </a>
+  <video src="https://github.com/Sahilkumbhar24/ai-fitness-app/raw/main/Project%20Walktrough.mp4" controls width="100%" poster="video-thumbnail.jpg">
+  </video>
 </p>
-
-<p align="center"><i>👆 Click the thumbnail above to download and watch the full walkthrough video</i></p>
 
 ---
 
