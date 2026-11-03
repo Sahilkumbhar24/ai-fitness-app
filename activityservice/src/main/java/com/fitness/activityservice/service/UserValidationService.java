@@ -1,5 +1,7 @@
 package com.fitness.activityservice.service;
 
+import java.time.Duration;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -24,7 +26,9 @@ public class UserValidationService {
                     .uri("/api/users/{userId}/validate", userId)
                     .retrieve()
                     .bodyToMono(Boolean.class)
+                    .timeout(Duration.ofSeconds(3))
                     .defaultIfEmpty(true)
+                    .onErrorReturn(true)
                     .block();
             if (Boolean.TRUE.equals(isValid)) {
                 return true;

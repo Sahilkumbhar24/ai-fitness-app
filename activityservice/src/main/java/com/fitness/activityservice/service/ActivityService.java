@@ -33,12 +33,14 @@ public class ActivityService {
             throw new RuntimeException("Invalid user: userId is required");
         }
 
-        // Validate user in background/non-blocking fashion so DB delays don't drop workouts
-        try {
-            userValidationService.validateUser(request.getUserId());
-        } catch (Exception e) {
-            log.warn("User validation skipped due to service warning: {}", e.getMessage());
-        }
+        // Validate user asynchronously in background so it never delays workout creation
+        CompletableFuture.runAsync(() -> {
+            try {
+                userValidationService.validateUser(request.getUserId());
+            } catch (Exception e) {
+                log.warn("Background user validation skipped: {}", e.getMessage());
+            }
+        });
 
         Activity activity = Activity.builder()
             .userId(request.getUserId())
