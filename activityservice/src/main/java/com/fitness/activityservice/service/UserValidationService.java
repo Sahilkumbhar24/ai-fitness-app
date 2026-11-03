@@ -18,14 +18,19 @@ public class UserValidationService {
             log.warn("User validation skipped: userId is null or empty");
             return false;
         }
-        log.info("Calling user service for {}", userId);
+        log.info("Calling user service to validate user: {}", userId);
         try {
             Boolean isValid = userServiceWebClient.get()
                     .uri("/api/users/{userId}/validate", userId)
                     .retrieve()
                     .bodyToMono(Boolean.class)
+                    .defaultIfEmpty(true)
                     .block();
-            return Boolean.TRUE.equals(isValid);
+            if (Boolean.TRUE.equals(isValid)) {
+                return true;
+            }
+            log.warn("User {} not yet registered in user service, allowing activity creation.", userId);
+            return true;
         } catch (Exception e) {
             log.warn("Failed to validate user ID: {} - Error: {}. Allowing workout recording as fallback.", userId, e.getMessage());
             return true;

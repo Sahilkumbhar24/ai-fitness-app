@@ -29,12 +29,26 @@ public class KeycloakUserSyncFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        // Don't intercept user service endpoints
+        String path = exchange.getRequest().getPath().value();
+        if (path.startsWith("/api/users")) {
+            return chain.filter(exchange);
+        }
+
         try {
             RegisterRequest request = getUserDetails(token);
-            String headerUserId = exchange.getRequest().getHeaders().getFirst("X-USER-ID");
+            String headerUserId = exchange.getRequest().getHeaders().getFirst("X-User-Id");
+            if (headerUserId == null) {
+                headerUserId = exchange.getRequest().getHeaders().getFirst("X-USER-ID");
+            }
             String userId = headerUserId != null ? headerUserId : request.getKeycloakId();
 
+            if (userId == null || request.getEmail() == null) {
+                return chain.filter(exchange);
+            }
+
             return userService.validateUser(userId)
+                    .defaultIfEmpty(false)
                     .flatMap(isValid -> {
                         if (Boolean.FALSE.equals(isValid)) {
                             log.info("User {} does not exist in User Service. Syncing/registering...", userId);
@@ -47,12 +61,13 @@ public class KeycloakUserSyncFilter implements WebFilter {
                         }
                         return chain.filter(exchange);
                     })
+                    .switchIfEmpty(Mono.defer(() -> chain.filter(exchange)))
                     .onErrorResume(e -> {
                         log.warn("User validation check failed: {}", e.getMessage());
                         return chain.filter(exchange);
                     });
         } catch (Exception e) {
-            log.error("Failed to extract or sync user from Keycloak token: {}", e.getMessage());
+            log.warn("Failed to process Keycloak token for user sync: {}", e.getMessage());
             return chain.filter(exchange);
         }
     }

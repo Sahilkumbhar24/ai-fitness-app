@@ -22,6 +22,7 @@ public class UserService {
                 .uri("/api/users/{userId}/validate", userId)
                 .retrieve()
                 .bodyToMono(Boolean.class)
+                .defaultIfEmpty(false)
                 .onErrorResume(e -> {
                     log.error("Failed to validate user ID: {} - Error: {}", userId, e.getMessage());
                     return Mono.just(false);
