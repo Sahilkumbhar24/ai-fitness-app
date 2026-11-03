@@ -30,6 +30,14 @@ if [ -n "$SPRING_DATASOURCE_URL" ]; then
       export SPRING_DATASOURCE_URL="jdbc:postgresql://${SPRING_DATASOURCE_URL#postgresql://}"
       ;;
   esac
+
+  # Ensure sslmode=require for Render managed PostgreSQL
+  case "$SPRING_DATASOURCE_URL" in
+    *sslmode=*) ;;
+    *\?*) export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL}&sslmode=require" ;;
+    *)    export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL}?sslmode=require" ;;
+  esac
+
   echo "Using SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}"
 fi
 

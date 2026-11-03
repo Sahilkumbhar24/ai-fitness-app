@@ -29,7 +29,7 @@ public class KeycloakUserSyncFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
-        // Don't intercept user service endpoints
+        // Don't intercept internal or user management endpoints
         String path = exchange.getRequest().getPath().value();
         if (path.startsWith("/api/users")) {
             return chain.filter(exchange);
@@ -43,29 +43,25 @@ public class KeycloakUserSyncFilter implements WebFilter {
             }
             String userId = headerUserId != null ? headerUserId : request.getKeycloakId();
 
-            if (userId == null || request.getEmail() == null) {
-                return chain.filter(exchange);
-            }
-
-            return userService.validateUser(userId)
+            if (userId != null && request.getEmail() != null) {
+                // Perform user sync in background so it never delays or blocks client requests
+                userService.validateUser(userId)
                     .defaultIfEmpty(false)
                     .flatMap(isValid -> {
                         if (Boolean.FALSE.equals(isValid)) {
-                            log.info("User {} does not exist in User Service. Syncing/registering...", userId);
-                            return userService.registerUser(request)
-                                    .onErrorResume(e -> {
-                                        log.warn("Could not sync user with User Service: {}", e.getMessage());
-                                        return Mono.empty();
-                                    })
-                                    .then(chain.filter(exchange));
+                            log.info("User {} does not exist in User Service. Background syncing...", userId);
+                            return userService.registerUser(request);
                         }
-                        return chain.filter(exchange);
+                        return Mono.empty();
                     })
-                    .switchIfEmpty(Mono.defer(() -> chain.filter(exchange)))
                     .onErrorResume(e -> {
-                        log.warn("User validation check failed: {}", e.getMessage());
-                        return chain.filter(exchange);
-                    });
+                        log.warn("Background user sync skipped: {}", e.getMessage());
+                        return Mono.empty();
+                    })
+                    .subscribe();
+            }
+
+            return chain.filter(exchange);
         } catch (Exception e) {
             log.warn("Failed to process Keycloak token for user sync: {}", e.getMessage());
             return chain.filter(exchange);
