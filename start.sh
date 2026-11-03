@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 echo "============================================="
 echo " Starting AI Fitness Application Backend     "
