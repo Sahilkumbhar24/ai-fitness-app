@@ -256,6 +256,26 @@ The frontend application will start at **`http://localhost:5173`**.
 
 ---
 
+## 🚀 Production Deployment
+
+For detailed, step-by-step production deployment instructions, see the **[Complete Deployment Guide](DEPLOYMENT_GUIDE.md)**.
+
+### Quick Deployment Options
+
+| Platform | Type | Architecture | Cost | Guide |
+| :--- | :--- | :--- | :--- | :--- |
+| **Render** (Recommended) | Cloud PaaS | All-in-One Backend + Static Frontend + Managed DBs | Free tier | [Render Deployment Guide](DEPLOYMENT_GUIDE.md#-method-1-deploy-to-render-recommended-for-free-tier) |
+| **Self-Hosted VM** | VPS (AWS EC2 / DigitalOcean) | Full Docker Compose (`docker-compose.prod.yml`) | ~$6–12/mo | [VM Deployment Guide](DEPLOYMENT_GUIDE.md#-method-2-self-hosted-on-any-cloud-vm-aws--digitalocean--hetzner) |
+| **Multi-Service Cloud** | Render / Railway / Kubernetes | 8 Independent Containerized Services | Pay-per-service | [Multi-Service Guide](DEPLOYMENT_GUIDE.md#-method-3-multi-service-distributed-deploy-paid-render--railway) |
+
+### 1-Click Render Deployment
+This project includes a ready-to-use Render Blueprint:
+1. Push your repository to GitHub.
+2. In [Render](https://render.com), click **New +** → **Blueprint** and connect this repository.
+3. Render reads `render.yaml` to provision PostgreSQL, Keycloak, the Spring Boot Backend, and the React frontend automatically.
+
+---
+
 ## 🐳 Docker & Containerization
 
 The repository includes a multi-stage `Dockerfile` and `start.sh` for production deployments:

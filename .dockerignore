@@ -1,0 +1,48 @@
+# =============================================================================
+# .dockerignore - Exclude unnecessary files from Docker build context
+# =============================================================================
+
+# Build output
+**/target/
+
+# IDE files
+**/.idea/
+**/.vscode/
+**/*.iml
+**/*.iws
+**/*.ipr
+**/.project
+**/.classpath
+**/.settings/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+**/Dockerfile
+**/.dockerignore
+docker-compose*.yml
+
+# Documentation
+*.md
+LICENSE
+
+# OS files
+**/.DS_Store
+**/Thumbs.db
+
+# Logs
+**/*.log
+**/logs/
+
+# Environment and secrets
+**/.env
+**/.env.*
+
+# Node modules (if any frontend exists)
+**/node_modules/
+
+# Temporary files
+**/tmp/
+**/temp/

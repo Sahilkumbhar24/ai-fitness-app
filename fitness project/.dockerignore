@@ -1,0 +1,51 @@
+# =============================================================================
+# Docker Ignore - AI Fitness Application Frontend
+# Excludes unnecessary files from the Docker build context for faster builds
+# =============================================================================
+
+# Dependencies (will be installed fresh via npm ci)
+node_modules
+
+# Build output (will be rebuilt inside the container)
+dist
+
+# Version control
+.git
+.gitignore
+
+# IDE / Editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (secrets should come from Render env vars, not files)
+.env.local
+.env.local.example
+.env.development
+.env.production.local
+
+# Docker files (no need to copy into build context)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+LICENSE
+
+# CI/CD
+.github
+
+# Render / Vercel deployment configs
+render.yaml
+vercel.json
+
+# Logs
+*.log
+npm-debug.log*

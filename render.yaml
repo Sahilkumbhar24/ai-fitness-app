@@ -1,0 +1,88 @@
+# =============================================================================
+# Render Blueprint — AI Fitness Application (Free Tier Optimized)
+# =============================================================================
+# This blueprint runs:
+#   1. PostgreSQL Database (Free Managed DB)
+#   2. Keycloak Auth Server (Docker Web Service)
+#   3. Backend All-in-One Container (Docker Web Service running Eureka + Gateway + Services)
+#   4. Frontend Static Site (100% Free CDN, zero sleep)
+#
+# This setup stays within Render's 750 free tier web service hours!
+# =============================================================================
+
+databases:
+  - name: fitness-postgres
+    plan: free
+    databaseName: fitness_micro_user
+    user: fitness_user
+
+services:
+  # ─── 1. Keycloak Identity Server ───
+  - type: web
+    name: fitness-keycloak
+    runtime: docker
+    plan: free
+    dockerfilePath: ./keycloak/Dockerfile
+    envVars:
+      - key: KEYCLOAK_ADMIN
+        value: admin
+      - key: KEYCLOAK_ADMIN_PASSWORD
+        generateValue: true
+      - key: KC_HOSTNAME_STRICT
+        value: "false"
+      - key: KC_PROXY
+        value: edge
+      - key: KC_HTTP_ENABLED
+        value: "true"
+
+  # ─── 2. Backend All-in-One Container (Gateway + Eureka + Services) ───
+  - type: web
+    name: fitness-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: GEMINI_API_KEY
+        sync: false  # Enter your Gemini API key in Render Dashboard
+      - key: SPRING_DATA_MONGODB_URI
+        sync: false  # Enter your MongoDB Atlas URI (e.g. mongodb+srv://...)
+      - key: SPRING_DATA_MONGODB_DATABASE
+        value: aiactivityfitness
+      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        sync: false  # Enter your Kafka broker (e.g. Upstash Kafka)
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: fitness-postgres
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: fitness-postgres
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: fitness-postgres
+          property: password
+      - key: KEYCLOAK_JWK_URI
+        sync: false  # Set to: https://<keycloak-host>/realms/fitness-app/protocol/openid-connect/certs
+
+  # ─── 3. React Frontend (Free Static Site with CDN & SPA rewrite) ───
+  - type: static
+    name: fitness-frontend
+    plan: free
+    buildCommand: cd "fitness project" && npm install && npm run build
+    staticPublishPath: ./fitness project/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false  # Set to: https://<backend-host>/api
+      - key: VITE_KEYCLOAK_URL
+        sync: false  # Set to: https://<keycloak-host>
+      - key: VITE_KEYCLOAK_REALM
+        value: fitness-app
+      - key: VITE_KEYCLOAK_CLIENT_ID
+        value: oauth2-pkce-client

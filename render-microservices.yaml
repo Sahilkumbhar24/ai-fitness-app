@@ -1,0 +1,143 @@
+# =============================================================================
+# Render Blueprint — Distributed Microservices Architecture
+# =============================================================================
+# Deploys every service as an independent container.
+# NOTE: Requires a paid Render plan (or team account) to run 7 web services
+# concurrently without hitting the 750 free-tier monthly hours limit.
+# =============================================================================
+
+databases:
+  - name: fitness-postgres
+    plan: free
+    databaseName: fitness_micro_user
+    user: fitness_user
+
+services:
+  - type: web
+    name: fitness-keycloak
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./keycloak/Dockerfile
+    envVars:
+      - key: KEYCLOAK_ADMIN
+        value: admin
+      - key: KEYCLOAK_ADMIN_PASSWORD
+        generateValue: true
+      - key: KC_HOSTNAME_STRICT
+        value: "false"
+      - key: KC_PROXY
+        value: edge
+      - key: KC_HTTP_ENABLED
+        value: "true"
+
+  - type: web
+    name: fitness-eureka
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./eureka/Dockerfile
+    dockerContext: ./eureka
+    envVars:
+      - key: PORT
+        value: "8761"
+
+  - type: web
+    name: fitness-configserver
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./configserver/Dockerfile
+    dockerContext: ./configserver
+    envVars:
+      - key: PORT
+        value: "8888"
+
+  - type: web
+    name: fitness-userservice
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./userservice/Dockerfile
+    dockerContext: ./userservice
+    envVars:
+      - key: PORT
+        value: "8081"
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: fitness-postgres
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: fitness-postgres
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: fitness-postgres
+          property: password
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        sync: false
+
+  - type: web
+    name: fitness-activityservice
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./activityservice/Dockerfile
+    dockerContext: ./activityservice
+    envVars:
+      - key: PORT
+        value: "8082"
+      - key: SPRING_DATA_MONGODB_URI
+        sync: false
+      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        sync: false
+
+  - type: web
+    name: fitness-aiservice
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./aiservice/Dockerfile
+    dockerContext: ./aiservice
+    envVars:
+      - key: PORT
+        value: "8083"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SPRING_DATA_MONGODB_URI
+        sync: false
+      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        sync: false
+
+  - type: web
+    name: fitness-gateway
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./gateway/Dockerfile
+    dockerContext: ./gateway
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        sync: false
+      - key: KEYCLOAK_JWK_URI
+        sync: false
+
+  - type: static
+    name: fitness-frontend
+    plan: free
+    buildCommand: cd "fitness project" && npm install && npm run build
+    staticPublishPath: ./fitness project/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_KEYCLOAK_URL
+        sync: false
+      - key: VITE_KEYCLOAK_REALM
+        value: fitness-app
+      - key: VITE_KEYCLOAK_CLIENT_ID
+        value: oauth2-pkce-client
+

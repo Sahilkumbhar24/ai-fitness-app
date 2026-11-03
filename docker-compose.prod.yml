@@ -1,0 +1,226 @@
+services:
+  # -------------------------------------------------------------
+  # Infrastructure
+  # -------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: fitness-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fitness-micro-user}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-242004}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fitness-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: fitness-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - fitness-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: fitness-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - fitness-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: fitness-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - fitness-network
+
+  keycloak:
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    container_name: fitness-keycloak
+    restart: unless-stopped
+    ports:
+      - "8181:8080"
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: "edge"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - fitness-network
+
+  # -------------------------------------------------------------
+  # Backend Microservices
+  # -------------------------------------------------------------
+  eureka:
+    build:
+      context: ./eureka
+      dockerfile: Dockerfile
+    container_name: fitness-eureka
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      PORT: 8761
+    networks:
+      - fitness-network
+
+  configserver:
+    build:
+      context: ./configserver
+      dockerfile: Dockerfile
+    container_name: fitness-configserver
+    restart: unless-stopped
+    depends_on:
+      - eureka
+    ports:
+      - "8888:8888"
+    environment:
+      PORT: 8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    networks:
+      - fitness-network
+
+  userservice:
+    build:
+      context: ./userservice
+      dockerfile: Dockerfile
+    container_name: fitness-userservice
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - eureka
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fitness-micro-user
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-242004}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      CONFIG_SERVER_URL: http://configserver:8888
+    networks:
+      - fitness-network
+
+  activityservice:
+    build:
+      context: ./activityservice
+      dockerfile: Dockerfile
+    container_name: fitness-activityservice
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - kafka
+      - eureka
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: 8082
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/aiactivityfitness
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      CONFIG_SERVER_URL: http://configserver:8888
+    networks:
+      - fitness-network
+
+  aiservice:
+    build:
+      context: ./aiservice
+      dockerfile: Dockerfile
+    container_name: fitness-aiservice
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - kafka
+      - eureka
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: 8083
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/aiactivityfitness
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      CONFIG_SERVER_URL: http://configserver:8888
+    networks:
+      - fitness-network
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: fitness-gateway
+    restart: unless-stopped
+    depends_on:
+      - eureka
+      - userservice
+      - activityservice
+      - aiservice
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      CONFIG_SERVER_URL: http://configserver:8888
+      KEYCLOAK_JWK_URI: http://keycloak:8080/realms/fitness-app/protocol/openid-connect/certs
+    networks:
+      - fitness-network
+
+  # -------------------------------------------------------------
+  # Frontend
+  # -------------------------------------------------------------
+  frontend:
+    build:
+      context: ./fitness project
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8181}
+        VITE_KEYCLOAK_REALM: fitness-app
+        VITE_KEYCLOAK_CLIENT_ID: oauth2-pkce-client
+        VITE_REDIRECT_URI: ${VITE_REDIRECT_URI:-http://localhost:3000}
+    container_name: fitness-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    networks:
+      - fitness-network
+
+networks:
+  fitness-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+

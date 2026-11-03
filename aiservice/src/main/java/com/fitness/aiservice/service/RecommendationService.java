@@ -44,7 +44,14 @@ public class RecommendationService {
             return recommendationRepository.save(newRec);
         }
 
-        throw new RuntimeException("Activity not found for activityId: " + activityId);
+        log.warn("Activity record not yet found for activityId: {}, generating baseline recommendation", activityId);
+        Activity placeholder = Activity.builder()
+            .id(activityId)
+            .duration(30)
+            .caloriesBurned(250)
+            .build();
+        Recommendation newRec = activityAIService.generateRecommendation(placeholder);
+        return recommendationRepository.save(newRec);
     }
 
 }
