@@ -92,9 +92,9 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false  # Set to: https://<backend-host>/api
+        value: "https://fitness-backend-pqge.onrender.com/api"
       - key: VITE_KEYCLOAK_URL
-        sync: false  # Set to: https://<keycloak-host>
+        value: "https://fitness-keycloak-ho08.onrender.com"
       - key: VITE_KEYCLOAK_REALM
         value: fitness-app
       - key: VITE_KEYCLOAK_CLIENT_ID
