@@ -1,8 +1,12 @@
 package com.fitness.activityservice.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +16,8 @@ import org.springframework.stereotype.Service;
 import com.fitness.activityservice.dto.ActivityRequest;
 import com.fitness.activityservice.dto.ActivityResponse;
 import com.fitness.activityservice.model.Activity;
+import com.fitness.activityservice.model.Recommendation;
+import com.fitness.activityservice.repository.RecommendationRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +31,9 @@ public class ActivityService {
     private final UserValidationService userValidationService;
     private final KafkaTemplate<String, Activity> kafkaTemplate;
     private final ActivityAIService activityAIService;
-    private final com.fitness.activityservice.repository.RecommendationRepository recommendationRepository;
+    private final RecommendationRepository recommendationRepository;
+
+    private final Map<String, Activity> inMemoryActivities = new ConcurrentHashMap<>();
 
     @Value("${kafka.topic.name}")
     private String topicName;
@@ -45,22 +53,41 @@ public class ActivityService {
         });
 
         Activity activity = Activity.builder()
+            .id(UUID.randomUUID().toString())
             .userId(request.getUserId())
             .type(request.getType())
             .duration(request.getDuration())
             .caloriesBurned(request.getCaloriesBurned())
             .startTime(request.getStartTime() != null ? request.getStartTime() : LocalDateTime.now())
-            .additionalMatrics(request.getAdditionalMatrics())
+            .additionalMatrics(request.getAdditionalMatrics() != null ? request.getAdditionalMatrics() : request.getAdditionalMetrics())
+            .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
             .build();
 
-        Activity savedActivity = activityRepository.save(activity);
+        // Resilient save: Try MongoDB first, fallback to in-memory store so user request never fails
+        Activity savedActivity;
+        try {
+            savedActivity = activityRepository.save(activity);
+            inMemoryActivities.put(savedActivity.getId(), savedActivity);
+            log.info("Activity successfully saved to MongoDB Atlas: {}", savedActivity.getId());
+        } catch (Exception e) {
+            log.warn("MongoDB write unavailable ({}), saving to in-memory store for user: {}", e.getMessage(), activity.getUserId());
+            inMemoryActivities.put(activity.getId(), activity);
+            savedActivity = activity;
+        }
+
+        final Activity finalActivity = savedActivity;
 
         // Generate AI recommendation immediately in background so it's ready when user opens detail view
         CompletableFuture.runAsync(() -> {
             try {
-                com.fitness.activityservice.model.Recommendation rec = activityAIService.generateRecommendation(savedActivity);
-                recommendationRepository.save(rec);
-                log.info("AI Recommendation generated and saved for activity {}", savedActivity.getId());
+                Recommendation rec = activityAIService.generateRecommendation(finalActivity);
+                try {
+                    recommendationRepository.save(rec);
+                } catch (Exception me) {
+                    log.warn("Could not save AI recommendation to MongoDB: {}", me.getMessage());
+                }
+                log.info("AI Recommendation generated and ready for activity {}", finalActivity.getId());
             } catch (Exception e) {
                 log.warn("Failed to generate AI recommendation: {}", e.getMessage());
             }
@@ -69,10 +96,10 @@ public class ActivityService {
         // Publish to Kafka asynchronously so HTTP thread is never blocked by broker delays
         CompletableFuture.runAsync(() -> {
             try {
-                kafkaTemplate.send(topicName, savedActivity.getUserId(), savedActivity);
-                log.info("Activity event sent to Kafka topic '{}' for user {}", topicName, savedActivity.getUserId());
+                kafkaTemplate.send(topicName, finalActivity.getUserId(), finalActivity);
+                log.info("Activity event sent to Kafka topic '{}' for user {}", topicName, finalActivity.getUserId());
             } catch (Exception e) {
-                log.error("Failed to publish activity to Kafka: {}", e.getMessage());
+                log.warn("Non-critical: Kafka publish skipped: {}", e.getMessage());
             }
         });
 
@@ -88,13 +115,32 @@ public class ActivityService {
         response.setCaloriesBurned(activity.getCaloriesBurned());
         response.setStartTime(activity.getStartTime());
         response.setAdditionalMatrics(activity.getAdditionalMatrics());
-        response.setCreatedAt(activity.getCreatedAt());
+        response.setCreatedAt(activity.getCreatedAt() != null ? activity.getCreatedAt() : LocalDateTime.now());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;
     }
 
     public List<ActivityResponse> getUserActivities(String userId) {
-        List<Activity> activities = activityRepository.findByUserId(userId);
-        return activities.stream().map(this::mapToResponse).collect(Collectors.toList());
+        try {
+            List<Activity> activities = activityRepository.findByUserId(userId);
+            if (activities != null && !activities.isEmpty()) {
+                // Also update in-memory cache
+                activities.forEach(a -> inMemoryActivities.put(a.getId(), a));
+                return activities.stream().map(this::mapToResponse).collect(Collectors.toList());
+            }
+        } catch (Exception e) {
+            log.warn("MongoDB query failed ({}), falling back to in-memory store for user: {}", e.getMessage(), userId);
+        }
+
+        // Fallback to in-memory store
+        return inMemoryActivities.values().stream()
+            .filter(a -> userId == null || userId.equals(a.getUserId()))
+            .sorted((a, b) -> {
+                LocalDateTime t1 = a.getCreatedAt() != null ? a.getCreatedAt() : LocalDateTime.MIN;
+                LocalDateTime t2 = b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.MIN;
+                return t2.compareTo(t1);
+            })
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
     }
 }

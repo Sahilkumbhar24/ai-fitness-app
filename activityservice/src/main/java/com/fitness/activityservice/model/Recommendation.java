@@ -30,3 +30,4 @@ public class Recommendation {
     @CreatedDate
     private LocalDateTime createdAt;
 }
+

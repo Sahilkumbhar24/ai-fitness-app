@@ -1,7 +1,11 @@
 package com.fitness.activityservice.service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -21,35 +25,80 @@ public class RecommendationService {
     private final ActivityRepository activityRepository;
     private final ActivityAIService activityAIService;
 
+    private final Map<String, Recommendation> inMemoryRecommendations = new ConcurrentHashMap<>();
+
     public List<Recommendation> getUserRecommendation(String userId) {
-        return recommendationRepository.findByUserId(userId);
+        try {
+            List<Recommendation> recs = recommendationRepository.findByUserId(userId);
+            if (recs != null && !recs.isEmpty()) {
+                return recs;
+            }
+        } catch (Exception e) {
+            log.warn("MongoDB query for user recommendations failed: {}", e.getMessage());
+        }
+
+        return inMemoryRecommendations.values().stream()
+            .filter(r -> userId == null || userId.equals(r.getUserId()))
+            .collect(Collectors.toList());
     }
 
     public List<Recommendation> getAllRecommendations() {
-        return recommendationRepository.findAll();
+        try {
+            return recommendationRepository.findAll();
+        } catch (Exception e) {
+            log.warn("MongoDB query for all recommendations failed: {}", e.getMessage());
+            return new ArrayList<>(inMemoryRecommendations.values());
+        }
     }
 
     public Recommendation getRecommendationForActivity(String activityId) {
-        Optional<Recommendation> existing = recommendationRepository.findByActivityId(activityId);
-        if (existing.isPresent()) {
-            return existing.get();
+        // 1. Try DB first
+        try {
+            Optional<Recommendation> existing = recommendationRepository.findByActivityId(activityId);
+            if (existing.isPresent()) {
+                inMemoryRecommendations.put(activityId, existing.get());
+                return existing.get();
+            }
+        } catch (Exception e) {
+            log.warn("MongoDB read failed for activityId {}: {}", activityId, e.getMessage());
         }
 
-        log.info("Recommendation not found in DB for activityId: {}, attempting on-demand AI generation", activityId);
-        Optional<Activity> activityOpt = activityRepository.findById(activityId);
-        if (activityOpt.isPresent()) {
-            Recommendation newRec = activityAIService.generateRecommendation(activityOpt.get());
-            return recommendationRepository.save(newRec);
+        // 2. Check in-memory store
+        Recommendation cached = inMemoryRecommendations.get(activityId);
+        if (cached != null) {
+            return cached;
         }
 
-        log.warn("Activity record not yet found for activityId: {}, generating baseline recommendation", activityId);
-        Activity placeholder = Activity.builder()
-            .id(activityId)
-            .duration(30)
-            .caloriesBurned(250)
-            .build();
-        Recommendation newRec = activityAIService.generateRecommendation(placeholder);
-        return recommendationRepository.save(newRec);
+        // 3. Generate on-demand
+        log.info("Generating on-demand AI recommendation for activityId: {}", activityId);
+        Activity targetActivity = null;
+        try {
+            Optional<Activity> activityOpt = activityRepository.findById(activityId);
+            if (activityOpt.isPresent()) {
+                targetActivity = activityOpt.get();
+            }
+        } catch (Exception e) {
+            log.warn("MongoDB lookup failed for activity: {}", e.getMessage());
+        }
+
+        if (targetActivity == null) {
+            targetActivity = Activity.builder()
+                .id(activityId)
+                .duration(30)
+                .caloriesBurned(250)
+                .build();
+        }
+
+        Recommendation newRec = activityAIService.generateRecommendation(targetActivity);
+        inMemoryRecommendations.put(activityId, newRec);
+
+        try {
+            recommendationRepository.save(newRec);
+        } catch (Exception e) {
+            log.warn("Could not save generated recommendation to MongoDB: {}", e.getMessage());
+        }
+
+        return newRec;
     }
 
 }
