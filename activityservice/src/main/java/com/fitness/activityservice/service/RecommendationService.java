@@ -31,6 +31,12 @@ public class RecommendationService {
     private volatile long lastMongoFailureTime = 0;
     private static final long MONGO_RETRY_INTERVAL_MS = 60000;
 
+    public void cacheRecommendation(Recommendation rec) {
+        if (rec != null && rec.getActivityId() != null) {
+            inMemoryRecommendations.put(rec.getActivityId(), rec);
+        }
+    }
+
     public List<Recommendation> getUserRecommendation(String userId) {
         boolean shouldTryMongo = mongoHealthy || (System.currentTimeMillis() - lastMongoFailureTime > MONGO_RETRY_INTERVAL_MS);
         if (shouldTryMongo) {

@@ -32,6 +32,7 @@ public class ActivityService {
     private final KafkaTemplate<String, Activity> kafkaTemplate;
     private final ActivityAIService activityAIService;
     private final RecommendationRepository recommendationRepository;
+    private final RecommendationService recommendationService;
 
     private final Map<String, Activity> inMemoryActivities = new ConcurrentHashMap<>();
 
@@ -97,6 +98,7 @@ public class ActivityService {
         CompletableFuture.runAsync(() -> {
             try {
                 Recommendation rec = activityAIService.generateRecommendation(finalActivity);
+                recommendationService.cacheRecommendation(rec);
                 if (mongoHealthy) {
                     try {
                         recommendationRepository.save(rec);
@@ -104,7 +106,7 @@ public class ActivityService {
                         log.warn("Could not save AI recommendation to MongoDB: {}", me.getMessage());
                     }
                 }
-                log.info("AI Recommendation generated and ready for activity {}", finalActivity.getId());
+                log.info("AI Recommendation generated and cached for activity {}", finalActivity.getId());
             } catch (Exception e) {
                 log.warn("Failed to generate AI recommendation: {}", e.getMessage());
             }

@@ -43,6 +43,7 @@ public class GeminiService {
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
+                    .timeout(java.time.Duration.ofSeconds(4))
                     .block();
         } catch (WebClientResponseException e) {
             log.error("Gemini API Error Response: Status = {}, Body = {}", e.getStatusCode(), e.getResponseBodyAsString());
