@@ -35,6 +35,8 @@ services:
         value: edge
       - key: KC_HTTP_ENABLED
         value: "true"
+      - key: JAVA_OPTS_APPEND
+        value: "-Xms128m -Xmx220m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC"
 
   # ─── 2. Backend All-in-One Container (Gateway + Eureka + Services) ───
   - type: web
