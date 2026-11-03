@@ -18,6 +18,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./keycloak/Dockerfile
+    dockerContext: ./keycloak
     envVars:
       - key: KEYCLOAK_ADMIN
         value: admin

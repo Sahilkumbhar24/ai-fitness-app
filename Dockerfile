@@ -20,6 +20,14 @@ RUN sed -i 's/\r$//' mvnw && \
     chmod +x mvnw && \
     ./mvnw clean package -DskipTests -B
 
+# Stage the built JARs cleanly
+RUN mkdir -p /jars && \
+    find /app/eureka/target -maxdepth 1 -name "*.jar" ! -name "*original*" ! -name "*-sources*" -exec cp {} /jars/eureka.jar \; && \
+    find /app/userservice/target -maxdepth 1 -name "*.jar" ! -name "*original*" ! -name "*-sources*" -exec cp {} /jars/userservice.jar \; && \
+    find /app/activityservice/target -maxdepth 1 -name "*.jar" ! -name "*original*" ! -name "*-sources*" -exec cp {} /jars/activityservice.jar \; && \
+    find /app/aiservice/target -maxdepth 1 -name "*.jar" ! -name "*original*" ! -name "*-sources*" -exec cp {} /jars/aiservice.jar \; && \
+    find /app/gateway/target -maxdepth 1 -name "*.jar" ! -name "*original*" ! -name "*-sources*" -exec cp {} /jars/gateway.jar \;
+
 # Production Alpine JRE Runtime
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
@@ -27,12 +35,8 @@ WORKDIR /app
 # Install netcat and curl for networking checks
 RUN apk add --no-cache netcat-openbsd curl
 
-# Copy built JARs from build stage
-COPY --from=build /app/eureka/target/*.jar eureka.jar
-COPY --from=build /app/userservice/target/*.jar userservice.jar
-COPY --from=build /app/activityservice/target/*.jar activityservice.jar
-COPY --from=build /app/aiservice/target/*.jar aiservice.jar
-COPY --from=build /app/gateway/target/*.jar gateway.jar
+# Copy built JARs from staging
+COPY --from=build /jars/*.jar /app/
 
 # Copy startup script
 COPY start.sh start.sh

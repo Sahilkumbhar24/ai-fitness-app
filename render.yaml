@@ -23,6 +23,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./keycloak/Dockerfile
+    dockerContext: ./keycloak
     envVars:
       - key: KEYCLOAK_ADMIN
         value: admin
