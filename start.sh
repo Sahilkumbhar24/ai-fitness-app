@@ -54,15 +54,15 @@ if [ -n "$SPRING_DATASOURCE_URL" ]; then
   echo "Using SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}"
 fi
 
-# Common low-memory JVM flags with strict Metaspace limits to stay well within Render 512MB RAM
-JVM_COMMON="-XX:+UseContainerSupport -XX:+UseSerialGC -Xss256k -XX:MaxMetaspaceSize=75m -XX:+ExitOnOutOfMemoryError"
+# Common low-memory JVM flags
+JVM_COMMON="-XX:+UseContainerSupport -XX:+UseSerialGC -Xss256k"
 
 # Save the public port for API Gateway
 PUBLIC_PORT=${PORT:-8080}
 
 # 1. Start API Gateway FIRST on the public port so Render detects it immediately
 echo "Starting API Gateway on public port ${PUBLIC_PORT}..."
-java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=${PUBLIC_PORT} -jar gateway.jar &
+java $JVM_COMMON -Xms24m -Xmx48m -XX:MaxMetaspaceSize=96m -Dserver.port=${PUBLIC_PORT} -jar gateway.jar &
 GATEWAY_PID=$!
 
 # Wait for API Gateway port to open
@@ -82,9 +82,17 @@ echo "API Gateway is active on port ${PUBLIC_PORT}!"
 # Unset external PORT so internal microservices don't try to bind to the public port
 unset PORT
 
-# 2. Start Activity, AI & User Engine on port 8082
-echo "Starting Activity & AI Engine (:8082)..."
-ACTIVITY_SERVICE_PORT=8082 SERVER_PORT=8082 java $JVM_COMMON -Xms32m -Xmx96m -Dserver.port=8082 -jar activityservice.jar &
+# 2. Start Activity, AI & User Engine on port 8082 with self-healing restart supervision
+start_activity_service() {
+  while true; do
+    echo "Starting Activity & AI Engine (:8082)..."
+    ACTIVITY_SERVICE_PORT=8082 SERVER_PORT=8082 java $JVM_COMMON -Xms32m -Xmx112m -XX:MaxMetaspaceSize=120m -Dserver.port=8082 -jar activityservice.jar
+    echo "Activity Engine process exited ($?), restarting in 2 seconds..."
+    sleep 2
+  done
+}
+
+start_activity_service &
 
 # Wait for Activity Service to bind to port 8082
 echo "Waiting for Activity & AI Engine on port 8082..."

@@ -35,6 +35,10 @@ public class ActivityService {
 
     private final Map<String, Activity> inMemoryActivities = new ConcurrentHashMap<>();
 
+    private volatile boolean mongoHealthy = true;
+    private volatile long lastMongoFailureTime = 0;
+    private static final long MONGO_RETRY_INTERVAL_MS = 60000; // 1 minute
+
     @Value("${kafka.topic.name}")
     private String topicName;
 
@@ -67,16 +71,24 @@ public class ActivityService {
             .updatedAt(LocalDateTime.now())
             .build();
 
-        // Resilient save: Try MongoDB first, fallback to in-memory store so user request never fails
-        Activity savedActivity;
-        try {
-            savedActivity = activityRepository.save(activity);
-            inMemoryActivities.put(savedActivity.getId(), savedActivity);
-            log.info("Activity successfully saved to MongoDB Atlas: {}", savedActivity.getId());
-        } catch (Exception e) {
-            log.warn("MongoDB write unavailable ({}), saving to in-memory store for user: {}", e.getMessage(), activity.getUserId());
+        // Resilient save: Try MongoDB only if healthy, fallback immediately to in-memory store
+        Activity savedActivity = activity;
+        boolean shouldTryMongo = mongoHealthy || (System.currentTimeMillis() - lastMongoFailureTime > MONGO_RETRY_INTERVAL_MS);
+        if (shouldTryMongo) {
+            try {
+                savedActivity = activityRepository.save(activity);
+                inMemoryActivities.put(savedActivity.getId(), savedActivity);
+                mongoHealthy = true;
+                log.info("Activity successfully saved to MongoDB Atlas: {}", savedActivity.getId());
+            } catch (Exception e) {
+                mongoHealthy = false;
+                lastMongoFailureTime = System.currentTimeMillis();
+                log.warn("MongoDB unavailable ({}), fast-falling back to in-memory store for user: {}", e.getMessage(), activity.getUserId());
+                inMemoryActivities.put(activity.getId(), activity);
+                savedActivity = activity;
+            }
+        } else {
             inMemoryActivities.put(activity.getId(), activity);
-            savedActivity = activity;
         }
 
         final Activity finalActivity = savedActivity;
@@ -85,10 +97,12 @@ public class ActivityService {
         CompletableFuture.runAsync(() -> {
             try {
                 Recommendation rec = activityAIService.generateRecommendation(finalActivity);
-                try {
-                    recommendationRepository.save(rec);
-                } catch (Exception me) {
-                    log.warn("Could not save AI recommendation to MongoDB: {}", me.getMessage());
+                if (mongoHealthy) {
+                    try {
+                        recommendationRepository.save(rec);
+                    } catch (Exception me) {
+                        log.warn("Could not save AI recommendation to MongoDB: {}", me.getMessage());
+                    }
                 }
                 log.info("AI Recommendation generated and ready for activity {}", finalActivity.getId());
             } catch (Exception e) {
@@ -126,18 +140,23 @@ public class ActivityService {
     }
 
     public List<ActivityResponse> getUserActivities(String userId) {
-        try {
-            List<Activity> activities = activityRepository.findByUserId(userId);
-            if (activities != null && !activities.isEmpty()) {
-                // Also update in-memory cache
-                activities.forEach(a -> inMemoryActivities.put(a.getId(), a));
-                return activities.stream().map(this::mapToResponse).collect(Collectors.toList());
+        boolean shouldTryMongo = mongoHealthy || (System.currentTimeMillis() - lastMongoFailureTime > MONGO_RETRY_INTERVAL_MS);
+        if (shouldTryMongo) {
+            try {
+                List<Activity> activities = activityRepository.findByUserId(userId);
+                if (activities != null && !activities.isEmpty()) {
+                    mongoHealthy = true;
+                    activities.forEach(a -> inMemoryActivities.put(a.getId(), a));
+                    return activities.stream().map(this::mapToResponse).collect(Collectors.toList());
+                }
+            } catch (Exception e) {
+                mongoHealthy = false;
+                lastMongoFailureTime = System.currentTimeMillis();
+                log.warn("MongoDB query failed ({}), fast-falling back to in-memory store for user: {}", e.getMessage(), userId);
             }
-        } catch (Exception e) {
-            log.warn("MongoDB query failed ({}), falling back to in-memory store for user: {}", e.getMessage(), userId);
         }
 
-        // Fallback to in-memory store
+        // Fast fallback to in-memory store
         return inMemoryActivities.values().stream()
             .filter(a -> userId == null || userId.equals(a.getUserId()))
             .sorted((a, b) -> {
