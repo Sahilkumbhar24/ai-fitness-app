@@ -51,7 +51,13 @@ services:
       - key: SPRING_DATA_MONGODB_DATABASE
         value: aiactivityfitness
       - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
-        sync: false  # Enter your Kafka broker (e.g. Upstash Kafka)
+        sync: false  # Enter your Kafka broker (e.g. Aiven)
+      - key: SPRING_KAFKA_SECURITY_PROTOCOL
+        value: "SASL_SSL"
+      - key: SPRING_KAFKA_SASL_MECHANISM
+        value: "SCRAM-SHA-256"
+      - key: SPRING_KAFKA_SASL_JAAS_CONFIG
+        sync: false  # JAAS string with username and password
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: fitness-postgres

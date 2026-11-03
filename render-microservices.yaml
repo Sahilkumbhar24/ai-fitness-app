@@ -87,6 +87,12 @@ services:
         sync: false
       - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
         sync: false
+      - key: SPRING_KAFKA_SECURITY_PROTOCOL
+        value: "SASL_SSL"
+      - key: SPRING_KAFKA_SASL_MECHANISM
+        value: "SCRAM-SHA-256"
+      - key: SPRING_KAFKA_SASL_JAAS_CONFIG
+        sync: false
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         sync: false
 
@@ -104,6 +110,12 @@ services:
       - key: SPRING_DATA_MONGODB_URI
         sync: false
       - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: SPRING_KAFKA_SECURITY_PROTOCOL
+        value: "SASL_SSL"
+      - key: SPRING_KAFKA_SASL_MECHANISM
+        value: "SCRAM-SHA-256"
+      - key: SPRING_KAFKA_SASL_JAAS_CONFIG
         sync: false
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         sync: false
