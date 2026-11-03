@@ -8,7 +8,7 @@ ENV KC_HTTP_PORT=8080
 ENV KC_PROXY=edge
 ENV KC_HOSTNAME_STRICT=false
 ENV KC_HTTP_ENABLED=true
-ENV JAVA_OPTS_APPEND="-Xms128m -Xmx220m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC"
+ENV JAVA_OPTS_APPEND="-Xms128m -Xmx240m -XX:MaxMetaspaceSize=128m"
 
 # Expose Keycloak HTTP port
 EXPOSE 8080
