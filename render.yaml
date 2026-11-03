@@ -25,6 +25,8 @@ services:
     dockerfilePath: ./keycloak/Dockerfile
     dockerContext: ./keycloak
     envVars:
+      - key: PORT
+        value: "8080"
       - key: KEYCLOAK_ADMIN
         value: admin
       - key: KEYCLOAK_ADMIN_PASSWORD
@@ -35,6 +37,8 @@ services:
         value: edge
       - key: KC_HTTP_ENABLED
         value: "true"
+      - key: KC_DB_URL
+        value: "jdbc:h2:mem:keycloak;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
       - key: JAVA_OPTS_APPEND
         value: "-Xms128m -Xmx240m -XX:MaxMetaspaceSize=128m"
 
