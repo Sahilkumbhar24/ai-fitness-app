@@ -77,7 +77,6 @@ services:
   - type: web
     runtime: static
     name: fitness-frontend
-    plan: free
     buildCommand: cd "fitness project" && npm install && npm run build
     staticPublishPath: "./fitness project/dist"
     routes:
