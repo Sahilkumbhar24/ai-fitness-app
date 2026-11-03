@@ -38,7 +38,7 @@ services:
       - key: KC_HTTP_ENABLED
         value: "true"
       - key: KC_DB_URL
-        value: "jdbc:h2:mem:keycloak;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+        value: "jdbc:h2:mem:keycloak;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE"
       - key: JAVA_OPTS_APPEND
         value: "-Xms128m -Xmx240m -XX:MaxMetaspaceSize=128m"
 
