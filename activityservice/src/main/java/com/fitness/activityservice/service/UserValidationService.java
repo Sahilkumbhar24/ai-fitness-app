@@ -2,7 +2,6 @@ package com.fitness.activityservice.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +14,11 @@ public class UserValidationService {
     private final WebClient userServiceWebClient;
 
     public boolean validateUser(String userId){
-        log.info("Calling user service for {}",userId);
+        if (userId == null || userId.trim().isEmpty()) {
+            log.warn("User validation skipped: userId is null or empty");
+            return false;
+        }
+        log.info("Calling user service for {}", userId);
         try {
             Boolean isValid = userServiceWebClient.get()
                     .uri("/api/users/{userId}/validate", userId)
@@ -24,10 +27,9 @@ public class UserValidationService {
                     .block();
             return Boolean.TRUE.equals(isValid);
         } catch (Exception e) {
-            log.error("Failed to validate user ID: " + userId + " - Error: " + e.getMessage());
-            return false;
+            log.warn("Failed to validate user ID: {} - Error: {}. Allowing workout recording as fallback.", userId, e.getMessage());
+            return true;
         }
     }
-
 
 }

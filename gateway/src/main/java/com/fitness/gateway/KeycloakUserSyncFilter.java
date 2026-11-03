@@ -39,8 +39,16 @@ public class KeycloakUserSyncFilter implements WebFilter {
                         if (Boolean.FALSE.equals(isValid)) {
                             log.info("User {} does not exist in User Service. Syncing/registering...", userId);
                             return userService.registerUser(request)
+                                    .onErrorResume(e -> {
+                                        log.warn("Could not sync user with User Service: {}", e.getMessage());
+                                        return Mono.empty();
+                                    })
                                     .then(chain.filter(exchange));
                         }
+                        return chain.filter(exchange);
+                    })
+                    .onErrorResume(e -> {
+                        log.warn("User validation check failed: {}", e.getMessage());
                         return chain.filter(exchange);
                     });
         } catch (Exception e) {
