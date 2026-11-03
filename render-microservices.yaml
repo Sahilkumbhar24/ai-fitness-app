@@ -134,11 +134,12 @@ services:
       - key: KEYCLOAK_JWK_URI
         sync: false
 
-  - type: static
+  - type: web
+    runtime: static
     name: fitness-frontend
     plan: free
     buildCommand: cd "fitness project" && npm install && npm run build
-    staticPublishPath: ./fitness project/dist
+    staticPublishPath: "./fitness project/dist"
     routes:
       - type: rewrite
         source: /*
