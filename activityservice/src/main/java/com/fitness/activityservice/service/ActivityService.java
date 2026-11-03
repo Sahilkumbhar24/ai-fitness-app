@@ -24,6 +24,8 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final UserValidationService userValidationService;
     private final KafkaTemplate<String, Activity> kafkaTemplate;
+    private final ActivityAIService activityAIService;
+    private final com.fitness.activityservice.repository.RecommendationRepository recommendationRepository;
 
     @Value("${kafka.topic.name}")
     private String topicName;
@@ -52,6 +54,17 @@ public class ActivityService {
             .build();
 
         Activity savedActivity = activityRepository.save(activity);
+
+        // Generate AI recommendation immediately in background so it's ready when user opens detail view
+        CompletableFuture.runAsync(() -> {
+            try {
+                com.fitness.activityservice.model.Recommendation rec = activityAIService.generateRecommendation(savedActivity);
+                recommendationRepository.save(rec);
+                log.info("AI Recommendation generated and saved for activity {}", savedActivity.getId());
+            } catch (Exception e) {
+                log.warn("Failed to generate AI recommendation: {}", e.getMessage());
+            }
+        });
 
         // Publish to Kafka asynchronously so HTTP thread is never blocked by broker delays
         CompletableFuture.runAsync(() -> {

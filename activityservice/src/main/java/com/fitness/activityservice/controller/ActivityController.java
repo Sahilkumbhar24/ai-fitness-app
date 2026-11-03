@@ -24,12 +24,14 @@ public class ActivityController {
 
     @PostMapping
     public ResponseEntity<ActivityResponse> trackActivity(@RequestBody ActivityRequest request, @RequestHeader(value = "X-User-Id", required = false) String userId) {
-        request.setUserId(userId);
+        if (userId != null && !userId.trim().isEmpty()) {
+            request.setUserId(userId);
+        }
         return ResponseEntity.ok(activityservice.trackActivity(request));
     }
 
     @GetMapping
-    public ResponseEntity<List<ActivityResponse>> getUserActivities( @RequestHeader(value = "X-User-Id", required = false) String userId) {
+    public ResponseEntity<List<ActivityResponse>> getUserActivities(@RequestHeader(value = "X-User-Id", required = false) String userId) {
         return ResponseEntity.ok(activityservice.getUserActivities(userId));
     }
 

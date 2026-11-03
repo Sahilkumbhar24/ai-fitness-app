@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Box from '@mui/material/Box';
@@ -33,6 +34,7 @@ const SPORT_OPTIONS = [
 ];
 
 const ActivityForm = ({ onActivityAdded }) => {
+  const navigate = useNavigate();
   const [activity, setActivity] = useState({
     type: 'RUNNING',
     duration: '',
@@ -54,14 +56,13 @@ const ActivityForm = ({ onActivityAdded }) => {
     try {
       setLoading(true);
       setError(null);
-      await addActivity({
+      const res = await addActivity({
         ...activity,
         duration: Number(activity.duration),
         caloriesBurned: Number(activity.caloriesBurned)
       });
       
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
 
       setActivity({
         type: 'RUNNING',
@@ -72,6 +73,14 @@ const ActivityForm = ({ onActivityAdded }) => {
 
       if (onActivityAdded) {
         onActivityAdded();
+      }
+
+      if (res?.data?.id) {
+        setTimeout(() => {
+          navigate(`/activities/${res.data.id}`);
+        }, 1200);
+      } else {
+        setTimeout(() => setSuccess(false), 3000);
       }
     } catch (err) {
       console.error('Error adding activity:', err);
@@ -125,7 +134,7 @@ const ActivityForm = ({ onActivityAdded }) => {
 
         {success && (
           <Alert severity="success" sx={{ mb: 2.5, borderRadius: 2 }}>
-            Workout recorded successfully!
+            Workout recorded successfully! Opening AI Insights report...
           </Alert>
         )}
 

@@ -61,6 +61,13 @@ public class KeycloakUserSyncFilter implements WebFilter {
                     .subscribe();
             }
 
+            if (userId != null && !userId.trim().isEmpty()) {
+                ServerWebExchange mutatedExchange = exchange.mutate()
+                    .request(builder -> builder.header("X-User-Id", userId))
+                    .build();
+                return chain.filter(mutatedExchange);
+            }
+
             return chain.filter(exchange);
         } catch (Exception e) {
             log.warn("Failed to process Keycloak token for user sync: {}", e.getMessage());
