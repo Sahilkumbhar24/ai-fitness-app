@@ -82,13 +82,7 @@ echo "API Gateway is active on port ${PUBLIC_PORT}!"
 # Unset external PORT so internal microservices don't try to bind to the public port
 unset PORT
 
-# 2. Start backend microservices on dedicated internal ports
-if [ -f userservice.jar ]; then
-  echo "Starting User Service (:8081)..."
-  USER_SERVICE_PORT=8081 SERVER_PORT=8081 java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8081 -jar userservice.jar &
-  sleep 2
-fi
-
+# 2. Start Activity & AI Service FIRST so core features are immediately available
 echo "Starting Activity & AI Service (:8082)..."
 ACTIVITY_SERVICE_PORT=8082 SERVER_PORT=8082 java $JVM_COMMON -Xms32m -Xmx96m -Dserver.port=8082 -jar activityservice.jar &
 
@@ -106,6 +100,12 @@ done
 
 if nc -z localhost 8082 2>/dev/null; then
   echo "Activity & AI Service is ACTIVE on port 8082!"
+fi
+
+# 3. Start User Service
+if [ -f userservice.jar ]; then
+  echo "Starting User Service (:8081)..."
+  USER_SERVICE_PORT=8081 SERVER_PORT=8081 java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8081 -jar userservice.jar &
 fi
 
 # Optional: Only run standalone AI service if explicitly enabled
