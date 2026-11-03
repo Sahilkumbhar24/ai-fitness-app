@@ -57,15 +57,18 @@ fi
 # Common low-memory JVM flags
 JVM_COMMON="-XX:+UseContainerSupport -XX:+UseSerialGC -Xss256k"
 
-# 1. Start API Gateway FIRST so Render detects port 8080 immediately
-echo "Starting API Gateway on port ${PORT:-8080}..."
-java $JVM_COMMON -Xms32m -Xmx64m -Dserver.port=${PORT:-8080} -jar gateway.jar &
+# Save the public port for API Gateway
+PUBLIC_PORT=${PORT:-8080}
+
+# 1. Start API Gateway FIRST on the public port so Render detects it immediately
+echo "Starting API Gateway on public port ${PUBLIC_PORT}..."
+java $JVM_COMMON -Xms32m -Xmx64m -Dserver.port=${PUBLIC_PORT} -jar gateway.jar &
 GATEWAY_PID=$!
 
 # Wait for API Gateway port to open
-echo "Waiting for API Gateway on port ${PORT:-8080}..."
+echo "Waiting for API Gateway on port ${PUBLIC_PORT}..."
 RETRIES=90
-while ! nc -z localhost ${PORT:-8080} 2>/dev/null; do
+while ! nc -z localhost ${PUBLIC_PORT} 2>/dev/null; do
   RETRIES=$((RETRIES - 1))
   if [ $RETRIES -le 0 ]; then
     echo "Gateway took longer than expected, proceeding with backend services..."
@@ -74,22 +77,41 @@ while ! nc -z localhost ${PORT:-8080} 2>/dev/null; do
   sleep 1
 done
 
-echo "API Gateway is active on port ${PORT:-8080}!"
+echo "API Gateway is active on port ${PUBLIC_PORT}!"
 
-# 2. Start backend microservices
+# Unset external PORT so internal microservices don't try to bind to the public port
+unset PORT
+
+# 2. Start backend microservices on dedicated internal ports
 if [ -f userservice.jar ]; then
   echo "Starting User Service (:8081)..."
-  java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8081 -jar userservice.jar &
+  USER_SERVICE_PORT=8081 SERVER_PORT=8081 java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8081 -jar userservice.jar &
   sleep 2
 fi
 
 echo "Starting Activity & AI Service (:8082)..."
-java $JVM_COMMON -Xms32m -Xmx96m -Dserver.port=8082 -jar activityservice.jar &
+ACTIVITY_SERVICE_PORT=8082 SERVER_PORT=8082 java $JVM_COMMON -Xms32m -Xmx96m -Dserver.port=8082 -jar activityservice.jar &
+
+# Wait for Activity Service to bind to port 8082
+echo "Waiting for Activity & AI Service on port 8082..."
+RETRIES=60
+while ! nc -z localhost 8082 2>/dev/null; do
+  RETRIES=$((RETRIES - 1))
+  if [ $RETRIES -le 0 ]; then
+    echo "Activity Service startup in progress, proceeding..."
+    break
+  fi
+  sleep 1
+done
+
+if nc -z localhost 8082 2>/dev/null; then
+  echo "Activity & AI Service is ACTIVE on port 8082!"
+fi
 
 # Optional: Only run standalone AI service if explicitly enabled
 if [ "${START_STANDALONE_AI:-false}" = "true" ] && [ -f aiservice.jar ]; then
   echo "Starting standalone AI Recommendation Service (:8083)..."
-  java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8083 -jar aiservice.jar &
+  AI_SERVICE_PORT=8083 SERVER_PORT=8083 java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8083 -jar aiservice.jar &
 fi
 
 echo "All services initiated. Keeping Gateway active in foreground."
