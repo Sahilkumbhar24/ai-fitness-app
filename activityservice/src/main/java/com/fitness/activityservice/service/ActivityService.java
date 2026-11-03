@@ -38,6 +38,9 @@ public class ActivityService {
     @Value("${kafka.topic.name}")
     private String topicName;
 
+    @Value("${spring.kafka.bootstrap-servers:}")
+    private String kafkaBootstrapServers;
+
     public ActivityResponse trackActivity(ActivityRequest request) {
         if (request.getUserId() == null || request.getUserId().trim().isEmpty()) {
             throw new RuntimeException("Invalid user: userId is required");
@@ -93,15 +96,17 @@ public class ActivityService {
             }
         });
 
-        // Publish to Kafka asynchronously so HTTP thread is never blocked by broker delays
-        CompletableFuture.runAsync(() -> {
-            try {
-                kafkaTemplate.send(topicName, finalActivity.getUserId(), finalActivity);
-                log.info("Activity event sent to Kafka topic '{}' for user {}", topicName, finalActivity.getUserId());
-            } catch (Exception e) {
-                log.warn("Non-critical: Kafka publish skipped: {}", e.getMessage());
-            }
-        });
+        // Publish to Kafka asynchronously only if an external broker is configured
+        if (kafkaBootstrapServers != null && !kafkaBootstrapServers.trim().isEmpty() && !kafkaBootstrapServers.contains("localhost")) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    kafkaTemplate.send(topicName, finalActivity.getUserId(), finalActivity);
+                    log.info("Activity event sent to Kafka topic '{}' for user {}", topicName, finalActivity.getUserId());
+                } catch (Exception e) {
+                    log.warn("Non-critical: Kafka publish skipped: {}", e.getMessage());
+                }
+            });
+        }
 
         return mapToResponse(savedActivity);
     }

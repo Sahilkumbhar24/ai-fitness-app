@@ -9,8 +9,8 @@ echo "============================================="
 export SPRING_CLOUD_CONFIG_ENABLED=false
 export EUREKA_CLIENT_ENABLED=false
 
-# Point microservice URLs directly to localhost (Activity Service handles both activities and AI recommendations)
-export USER_SERVICE_URL=http://localhost:8081
+# Point microservice URLs directly to localhost:8082 (Activity Service is the unified high-performance microservice engine)
+export USER_SERVICE_URL=http://localhost:8082
 export ACTIVITY_SERVICE_URL=http://localhost:8082
 export AI_SERVICE_URL=http://localhost:8082
 
@@ -54,15 +54,15 @@ if [ -n "$SPRING_DATASOURCE_URL" ]; then
   echo "Using SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}"
 fi
 
-# Common low-memory JVM flags
-JVM_COMMON="-XX:+UseContainerSupport -XX:+UseSerialGC -Xss256k"
+# Common low-memory JVM flags with strict Metaspace limits to stay well within Render 512MB RAM
+JVM_COMMON="-XX:+UseContainerSupport -XX:+UseSerialGC -Xss256k -XX:MaxMetaspaceSize=75m -XX:+ExitOnOutOfMemoryError"
 
 # Save the public port for API Gateway
 PUBLIC_PORT=${PORT:-8080}
 
 # 1. Start API Gateway FIRST on the public port so Render detects it immediately
 echo "Starting API Gateway on public port ${PUBLIC_PORT}..."
-java $JVM_COMMON -Xms32m -Xmx64m -Dserver.port=${PUBLIC_PORT} -jar gateway.jar &
+java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=${PUBLIC_PORT} -jar gateway.jar &
 GATEWAY_PID=$!
 
 # Wait for API Gateway port to open
@@ -82,12 +82,12 @@ echo "API Gateway is active on port ${PUBLIC_PORT}!"
 # Unset external PORT so internal microservices don't try to bind to the public port
 unset PORT
 
-# 2. Start Activity & AI Service FIRST so core features are immediately available
-echo "Starting Activity & AI Service (:8082)..."
+# 2. Start Activity, AI & User Engine on port 8082
+echo "Starting Activity & AI Engine (:8082)..."
 ACTIVITY_SERVICE_PORT=8082 SERVER_PORT=8082 java $JVM_COMMON -Xms32m -Xmx96m -Dserver.port=8082 -jar activityservice.jar &
 
 # Wait for Activity Service to bind to port 8082
-echo "Waiting for Activity & AI Service on port 8082..."
+echo "Waiting for Activity & AI Engine on port 8082..."
 RETRIES=60
 while ! nc -z localhost 8082 2>/dev/null; do
   RETRIES=$((RETRIES - 1))
@@ -99,16 +99,15 @@ while ! nc -z localhost 8082 2>/dev/null; do
 done
 
 if nc -z localhost 8082 2>/dev/null; then
-  echo "Activity & AI Service is ACTIVE on port 8082!"
+  echo "Activity & AI Engine is ACTIVE on port 8082!"
 fi
 
-# 3. Start User Service
-if [ -f userservice.jar ]; then
-  echo "Starting User Service (:8081)..."
-  USER_SERVICE_PORT=8081 SERVER_PORT=8081 java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8081 -jar userservice.jar &
+# 3. Standalone services only started if explicitly opted in
+if [ "${START_USER_SERVICE:-false}" = "true" ] && [ -f userservice.jar ]; then
+  echo "Starting optional standalone User Service (:8081)..."
+  USER_SERVICE_PORT=8081 SERVER_PORT=8081 java $JVM_COMMON -Xms16m -Xmx32m -Dserver.port=8081 -jar userservice.jar &
 fi
 
-# Optional: Only run standalone AI service if explicitly enabled
 if [ "${START_STANDALONE_AI:-false}" = "true" ] && [ -f aiservice.jar ]; then
   echo "Starting standalone AI Recommendation Service (:8083)..."
   AI_SERVICE_PORT=8083 SERVER_PORT=8083 java $JVM_COMMON -Xms24m -Xmx48m -Dserver.port=8083 -jar aiservice.jar &
