@@ -32,15 +32,15 @@ RUN mkdir -p /jars && \
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Install netcat and curl for networking checks
-RUN apk add --no-cache netcat-openbsd curl
+# Install netcat, curl, and dos2unix for networking and reliable script execution
+RUN apk add --no-cache netcat-openbsd curl dos2unix
 
 # Copy built JARs from staging
 COPY --from=build /jars/*.jar /app/
 
-# Copy startup script
+# Copy startup script and guarantee Unix line endings
 COPY start.sh start.sh
-RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
+RUN dos2unix start.sh && chmod +x start.sh
 
 EXPOSE 8080
-CMD ["./start.sh"]
+CMD ["/bin/sh", "start.sh"]

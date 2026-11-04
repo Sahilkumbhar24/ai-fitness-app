@@ -60,9 +60,9 @@ JVM_COMMON="-XX:+UseContainerSupport -XX:+UseSerialGC -Xss256k"
 # Save the public port for API Gateway
 PUBLIC_PORT=${PORT:-8080}
 
-# 1. Start API Gateway FIRST on the public port so Render detects it immediately
+# 1. Start API Gateway FIRST on the public port (0.0.0.0) so Render detects it immediately
 echo "Starting API Gateway on public port ${PUBLIC_PORT}..."
-java $JVM_COMMON -Xms24m -Xmx48m -XX:MaxMetaspaceSize=96m -Dserver.port=${PUBLIC_PORT} -jar gateway.jar &
+java $JVM_COMMON -Xms28m -Xmx56m -XX:MaxMetaspaceSize=96m -Dserver.port=${PUBLIC_PORT} -Dserver.address=0.0.0.0 -jar gateway.jar &
 GATEWAY_PID=$!
 
 # Wait for API Gateway port to open
